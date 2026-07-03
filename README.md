@@ -7,11 +7,12 @@ Built on **Django + Channels** (WebSockets) with a **Redis** channel layer and
 **PostgreSQL**, deployed on **Railway**. See `../plans/websocket.md` for the full
 phased plan.
 
-> **Status: Phase 0 — walking skeleton (LIVE).** Proves ASGI + WebSockets + Redis
-> fan-out + `<script>`-tag embedding + deploy all work end to end. No real chat
-> features yet.
+> **Status: Phase 1 — real-time chat (LIVE).** Visitor ↔ operator messaging over
+> WebSockets, persisted to Postgres, with a login-required operator dashboard.
+> Multi-tenant data model with a single seeded Site.
 >
-> **Live:** <https://web-production-dc5e0.up.railway.app/>
+> **Live:** <https://web-production-dc5e0.up.railway.app/> — visitor demo at `/`,
+> operator inbox at `/operator/`.
 
 ## Architecture note (why this isn't a normal Django deploy)
 
@@ -36,7 +37,17 @@ python3 -m venv .venv
 ./dev.sh
 ```
 
-Then open <http://localhost:8000/>. Ctrl+C stops the server and tears down Redis.
+Then:
+- Visitor widget: <http://localhost:8000/>
+- Operator inbox: <http://localhost:8000/operator/> — log in as `admin` / `password`
+  (created by `seed_demo` in DEBUG). Chat as the visitor in one window, reply from
+  the operator inbox in another.
+
+Ctrl+C stops the server and tears down Redis.
+
+On Railway, set `OPERATOR_PASSWORD` (and optionally `OPERATOR_USERNAME`) so
+`seed_demo` provisions the operator login — it refuses to create a default password
+when `DEBUG` is off.
 
 Then open <http://localhost:8000/> — the demo "host page" with the widget. Open it in
 **two tabs**, send a message in one, and watch it appear in the other (Redis fan-out).
