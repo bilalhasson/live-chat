@@ -10,6 +10,8 @@
       header { display: flex; align-items: center; justify-content: space-between;
                padding: 10px 16px; background: #111827; color: #fff; font-size: 14px; }
       header a { color: #93c5fd; font-size: 13px; }
+      header form { margin: 0; }
+      #logout { background: none; border: none; color: #93c5fd; font-size: 13px; cursor: pointer; padding: 0; }
       #status { font-size: 12px; opacity: .8; }
       main { flex: 1; display: flex; min-height: 0; }
       #list { width: 280px; border-right: 1px solid #e5e7eb; overflow-y: auto; }
@@ -32,7 +34,11 @@
   <body>
     <header>
       <span>Operator inbox <span id="status">connecting…</span></span>
-      <a href="/logout/">Log out</a>
+      <!-- Django 5.x LogoutView is POST-only; a GET link would 405 and NOT log out. -->
+      <form method="post" action="/logout/">
+        {% csrf_token %}
+        <button id="logout" type="submit">Log out</button>
+      </form>
     </header>
     <main>
       <div id="list"></div>
