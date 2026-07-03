@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Live Chat — Phase 0 demo host page</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 640px;
+        margin: 60px auto;
+        padding: 0 20px;
+        color: #1f2937;
+        line-height: 1.6;
+      }
+      code {
+        background: #f3f4f6;
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Pretend host website</h1>
+    <p>
+      This page stands in for a customer's website. The live-chat widget is loaded
+      with a single script tag (see the bottom of this page's source). Click the
+      <strong>Chat</strong> button in the bottom-right corner.
+    </p>
+    <p>
+      <strong>Prove the Redis fan-out:</strong> open this page in two browser tabs,
+      type a message in one, and watch it appear in the other. That round-trip goes
+      through the Redis channel layer.
+    </p>
+
+    <!-- The one line a site owner would paste. Same-origin here; on a real host
+         site it would be an absolute URL, e.g. https://your-app.up.railway.app/widget.js -->
+    <script src="/widget.js" defer></script>
+  </body>
+</html>

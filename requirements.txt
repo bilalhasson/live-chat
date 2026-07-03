@@ -1,0 +1,11 @@
+Django==5.1.4
+channels[daphne]==4.2.0
+channels-redis==4.2.1
+# Pin redis-py to 5.x: redis-py 8.x breaks channels-redis 4.2.1's blocking
+# receive() (idle reads die after ~5s with "Timeout reading from"). channels-redis
+# has no upper pin, so without this pip installs the incompatible latest.
+redis==5.2.1
+daphne==4.1.2
+whitenoise==6.8.2
+dj-database-url==2.3.0
+psycopg[binary]==3.2.3
