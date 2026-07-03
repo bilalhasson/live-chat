@@ -38,11 +38,8 @@ done
 echo "Applying migrations..."
 "$PYTHON" manage.py migrate
 
-echo "Ensuring dev superuser 'admin' exists..."
-DJANGO_SUPERUSER_PASSWORD=password DJANGO_SUPERUSER_EMAIL="" "$PYTHON" manage.py createsuperuser \
-  --noinput --username admin 2>/dev/null \
-  && echo "Created superuser 'admin' (password: password)" \
-  || echo "Superuser 'admin' already exists — skipping."
+echo "Seeding operator + demo site..."
+"$PYTHON" manage.py seed_demo
 
 echo "Starting Django ASGI dev server..."
 "$PYTHON" manage.py runserver &

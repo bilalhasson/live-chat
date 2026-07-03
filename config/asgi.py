@@ -1,12 +1,16 @@
 """
 ASGI entrypoint.
 
-The key difference from a standard WSGI Django app: this is a ProtocolTypeRouter
-that sends plain HTTP to Django and `websocket` connections to Channels.
+ProtocolTypeRouter sends plain HTTP to Django and `websocket` connections to
+Channels. WebSocket connections pass through AuthMiddlewareStack, which reads the
+session cookie into scope["user"]:
+  * Operators connect same-origin from the dashboard -> authenticated user.
+  * Visitors connect cross-origin from any host page -> AnonymousUser (no cookie).
 """
 
 import os
 
+from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
 from django.core.asgi import get_asgi_application
 
@@ -20,8 +24,8 @@ from chat.routing import websocket_urlpatterns  # noqa: E402  (import after app 
 application = ProtocolTypeRouter(
     {
         "http": django_asgi_app,
-        # Phase 0: no origin validation — the widget connects from arbitrary host
-        # pages. Phase 2 wraps this in a per-Site origin validator.
-        "websocket": URLRouter(websocket_urlpatterns),
+        # Phase 1: no origin validation yet — visitors connect cross-origin.
+        # Phase 2 wraps this in a per-Site origin validator.
+        "websocket": AuthMiddlewareStack(URLRouter(websocket_urlpatterns)),
     }
 )

@@ -28,13 +28,14 @@
       <strong>Chat</strong> button in the bottom-right corner.
     </p>
     <p>
-      <strong>Prove the Redis fan-out:</strong> open this page in two browser tabs,
-      type a message in one, and watch it appear in the other. That round-trip goes
-      through the Redis channel layer.
+      Chat here as a visitor; reply from the
+      <a href="/operator/">operator dashboard</a> in another window and watch
+      messages flow live in both directions.
     </p>
 
-    <!-- The one line a site owner would paste. Same-origin here; on a real host
-         site it would be an absolute URL, e.g. https://your-app.up.railway.app/widget.js -->
-    <script src="/widget.js" defer></script>
+    <!-- The one line a site owner would paste. `data-site-key` identifies the
+         tenant. On a real host site the src would be an absolute URL, e.g.
+         https://your-app.up.railway.app/widget.js -->
+    <script src="/widget.js" data-site-key="{{ site_key }}" defer></script>
   </body>
 </html>
