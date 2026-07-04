@@ -67,6 +67,14 @@ def conversation_summary(conversation_id) -> dict:
 
 
 @database_sync_to_async
+def canned_for_site(site_id) -> list:
+    from chat.models import CannedResponse
+    return list(
+        CannedResponse.objects.filter(site_id=site_id).values("id", "title", "body")
+    )
+
+
+@database_sync_to_async
 def ai_config_for_conversation(conversation_id):
     """(site_name, ai_tone, ai_context, ai_enabled) for the AI suggestion prompt."""
     conv = Conversation.objects.select_related("site").get(id=conversation_id)

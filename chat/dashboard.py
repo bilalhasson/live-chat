@@ -10,8 +10,8 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from chat.forms import SignupForm, SiteForm
-from chat.models import Site
+from chat.forms import CannedResponseForm, SignupForm, SiteForm
+from chat.models import CannedResponse, Site
 
 
 def signup(request):
@@ -52,7 +52,13 @@ def site_detail(request, pk):
         f'<script src="{request.scheme}://{request.get_host()}/widget.js" '
         f'data-site-key="{site.public_key}"></script>'
     )
-    return render(request, "dashboard/site_detail.html", {"site": site, "form": form, "snippet": snippet})
+    return render(request, "dashboard/site_detail.html", {
+        "site": site,
+        "form": form,
+        "snippet": snippet,
+        "canned": site.canned_responses.all(),
+        "canned_form": CannedResponseForm(),
+    })
 
 
 @login_required
@@ -60,6 +66,35 @@ def site_detail(request, pk):
 def site_delete(request, pk):
     get_object_or_404(Site, pk=pk, owner=request.user).delete()
     return redirect("sites")
+
+
+@login_required
+@require_POST
+def canned_create(request, pk):
+    site = get_object_or_404(Site, pk=pk, owner=request.user)
+    form = CannedResponseForm(request.POST)
+    if form.is_valid():
+        canned = form.save(commit=False)
+        canned.site = site
+        canned.save()
+    return redirect("site_detail", pk=site.pk)
+
+
+@login_required
+@require_POST
+def canned_update(request, pk, cid):
+    canned = get_object_or_404(CannedResponse, pk=cid, site_id=pk, site__owner=request.user)
+    form = CannedResponseForm(request.POST, instance=canned)
+    if form.is_valid():
+        form.save()
+    return redirect("site_detail", pk=pk)
+
+
+@login_required
+@require_POST
+def canned_delete(request, pk, cid):
+    get_object_or_404(CannedResponse, pk=cid, site_id=pk, site__owner=request.user).delete()
+    return redirect("site_detail", pk=pk)
 
 
 @login_required

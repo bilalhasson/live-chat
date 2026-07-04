@@ -192,7 +192,8 @@ class OperatorConsumer(AsyncWebsocketConsumer):
         return conversations
 
     async def _open(self, conversation_id):
-        if await services.conv_site_id(conversation_id, self.site_ids) is None:
+        site_id = await services.conv_site_id(conversation_id, self.site_ids)
+        if site_id is None:
             return  # not one of this operator's conversations
         if self.current_conv and self.current_conv != conversation_id:
             await self.channel_layer.group_discard(conversation_group(self.current_conv), self.channel_name)
@@ -200,6 +201,9 @@ class OperatorConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_add(conversation_group(conversation_id), self.channel_name)
         await self.send(text_data=json.dumps(
             events.client_history(await services.load_history(conversation_id), conversation_id)
+        ))
+        await self.send(text_data=json.dumps(
+            events.client_canned(conversation_id, await services.canned_for_site(site_id))
         ))
 
     async def _reply(self, conversation_id, body):

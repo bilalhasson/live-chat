@@ -22,5 +22,8 @@ urlpatterns = [
     path("sites/", dashboard.sites, name="sites"),
     path("sites/<int:pk>/", dashboard.site_detail, name="site_detail"),
     path("sites/<int:pk>/delete/", dashboard.site_delete, name="site_delete"),
+    path("sites/<int:pk>/canned/", dashboard.canned_create, name="canned_create"),
+    path("sites/<int:pk>/canned/<int:cid>/edit/", dashboard.canned_update, name="canned_update"),
+    path("sites/<int:pk>/canned/<int:cid>/delete/", dashboard.canned_delete, name="canned_delete"),
     path("inbox/", dashboard.inbox, name="inbox"),
 ]

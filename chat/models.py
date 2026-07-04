@@ -86,3 +86,18 @@ class Message(models.Model):
 
     def __str__(self):
         return f"[{self.sender_role}] {self.body[:40]}"
+
+
+class CannedResponse(models.Model):
+    """A saved reply template an operator can insert (per Site)."""
+
+    site = models.ForeignKey(Site, on_delete=models.CASCADE, related_name="canned_responses")
+    title = models.CharField(max_length=80)  # the "/shortcut" label
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["title"]
+
+    def __str__(self):
+        return self.title

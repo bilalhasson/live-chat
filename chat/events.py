@@ -35,6 +35,7 @@ C_SUGGESTION_START = "suggestion_start"
 C_SUGGESTION_DELTA = "suggestion_delta"
 C_SUGGESTION_END = "suggestion_end"
 C_SUGGESTION_ERROR = "suggestion_error"
+C_CANNED = "canned"
 
 # --- inbound client actions ---
 A_OPEN = "open"
@@ -107,3 +108,7 @@ def client_suggestion_end(conversation_id) -> dict:
 
 def client_suggestion_error(conversation_id, message: str) -> dict:
     return {"type": C_SUGGESTION_ERROR, "conversation_id": conversation_id, "message": message}
+
+
+def client_canned(conversation_id, responses: list) -> dict:
+    return {"type": C_CANNED, "conversation_id": conversation_id, "responses": responses}

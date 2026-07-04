@@ -4,7 +4,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
-from chat.models import Site
+from chat.models import CannedResponse, Site
 
 
 class SignupForm(UserCreationForm):
@@ -37,4 +37,14 @@ class SiteForm(forms.ModelForm):
         help_texts = {
             "allowed_domain": "Lock the widget to this domain (and subdomains). Leave blank to allow any origin.",
             "ai_context": "Grounds the AI's drafts in your business. The single biggest lever on reply quality.",
+        }
+
+
+class CannedResponseForm(forms.ModelForm):
+    class Meta:
+        model = CannedResponse
+        fields = ("title", "body")
+        widgets = {
+            "title": forms.TextInput(attrs={"placeholder": "e.g. Business hours"}),
+            "body": forms.Textarea(attrs={"rows": 3, "placeholder": "The saved reply text…"}),
         }

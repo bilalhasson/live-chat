@@ -19,6 +19,36 @@
     </form>
   </div>
 
+  <h2>Canned responses</h2>
+  <div class="card">
+    <p class="helptext">Saved replies your operators insert by typing <code>/</code> in the inbox.</p>
+    {% for cr in canned %}
+      <div class="canned-edit">
+        <form method="post" action="{% url 'canned_update' site.pk cr.pk %}">
+          {% csrf_token %}
+          <input name="title" value="{{ cr.title }}" maxlength="80" required />
+          <textarea name="body" rows="2" required>{{ cr.body }}</textarea>
+          <div class="canned-actions">
+            <button class="primary" type="submit">Save</button>
+          </div>
+        </form>
+        <form method="post" action="{% url 'canned_delete' site.pk cr.pk %}" class="canned-del">
+          {% csrf_token %}
+          <button class="danger" type="submit">Delete</button>
+        </form>
+      </div>
+    {% empty %}
+      <p>No canned responses yet.</p>
+    {% endfor %}
+
+    <h3 style="font-size:14px; margin-top:20px;">Add a canned response</h3>
+    <form method="post" action="{% url 'canned_create' site.pk %}">
+      {% csrf_token %}
+      {{ canned_form.as_p }}
+      <button class="primary" type="submit">Add canned response</button>
+    </form>
+  </div>
+
   <h2>Danger zone</h2>
   <div class="card">
     <form method="post" action="{% url 'site_delete' site.pk %}"

@@ -14,6 +14,11 @@
   var replyEl = document.getElementById("reply");
   var typingEl = document.getElementById("typing");
   var suggestEl = document.getElementById("suggest");
+  var cannedMenuEl = document.getElementById("canned-menu");
+
+  var canned = [];       // current conversation's saved replies
+  var cannedItems = [];  // currently-filtered subset shown in the menu
+  var cannedSel = -1;    // highlighted index
 
   var convs = {};      // id -> conversation summary
   var unread = {};     // id -> count
@@ -94,6 +99,9 @@
         updateSuggest();
         flashSuggestError(data.message);
         break;
+      case "canned":
+        if (data.conversation_id === currentId) canned = data.responses || [];
+        break;
     }
   }
 
@@ -128,6 +136,8 @@
   function openConv(id) {
     currentId = id;
     unread[id] = 0;
+    canned = [];        // refreshed by the "canned" message the server sends on open
+    hideCannedMenu();
     hideTyping();
     renderList();
     threadEl.innerHTML = "";
@@ -167,11 +177,19 @@
     socket.send(JSON.stringify({ action: "typing", conversation_id: currentId, typing: on }));
   }
   replyEl.addEventListener("input", function () {
+    updateCannedMenu();
     sendTyping(true);
     clearTimeout(typingIdle);
     typingIdle = setTimeout(function () { sendTyping(false); }, 2500);
   });
   replyEl.addEventListener("keydown", function (e) {
+    // Canned-response menu navigation takes precedence over sending.
+    if (cannedOpen()) {
+      if (e.key === "ArrowDown") { e.preventDefault(); moveCanned(1); return; }
+      if (e.key === "ArrowUp") { e.preventDefault(); moveCanned(-1); return; }
+      if (e.key === "Escape") { e.preventDefault(); hideCannedMenu(); return; }
+      if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); insertCanned(cannedSel); return; }
+    }
     if (e.key !== "Enter") return;
     var body = replyEl.value.trim();
     if (!body || currentId === null || !socket || socket.readyState !== WebSocket.OPEN) return;
@@ -231,6 +249,56 @@
       updateSuggest();
       socket.send(JSON.stringify({ action: "suggest", conversation_id: currentId }));
     });
+  }
+
+  // --- canned responses (slash-command) ---
+  function cannedOpen() {
+    return !cannedMenuEl.classList.contains("hidden") && cannedItems.length > 0;
+  }
+
+  function updateCannedMenu() {
+    var v = replyEl.value;
+    if (v.charAt(0) !== "/" || canned.length === 0) { hideCannedMenu(); return; }
+    var q = v.slice(1).toLowerCase();
+    cannedItems = canned.filter(function (c) { return c.title.toLowerCase().indexOf(q) !== -1; });
+    if (cannedItems.length === 0) { hideCannedMenu(); return; }
+    cannedSel = 0;
+    renderCannedMenu();
+  }
+
+  function renderCannedMenu() {
+    cannedMenuEl.innerHTML = "";
+    cannedItems.forEach(function (c, i) {
+      var item = document.createElement("div");
+      item.className = "canned-item" + (i === cannedSel ? " sel" : "");
+      var t = document.createElement("div"); t.className = "t"; t.textContent = c.title;
+      var b = document.createElement("div"); b.className = "b"; b.textContent = c.body;
+      item.appendChild(t); item.appendChild(b);
+      item.addEventListener("mousedown", function (e) { e.preventDefault(); insertCanned(i); });
+      cannedMenuEl.appendChild(item);
+    });
+    cannedMenuEl.classList.remove("hidden");
+  }
+
+  function moveCanned(delta) {
+    var n = cannedItems.length;
+    cannedSel = (cannedSel + delta + n) % n;
+    renderCannedMenu();
+  }
+
+  function insertCanned(i) {
+    if (i < 0 || i >= cannedItems.length) return;
+    replyEl.value = cannedItems[i].body;
+    hideCannedMenu();
+    replyEl.focus();
+    clearTimeout(typingIdle);
+    sendTyping(false);
+  }
+
+  function hideCannedMenu() {
+    cannedMenuEl.classList.add("hidden");
+    cannedItems = [];
+    cannedSel = -1;
   }
 
   connect();
