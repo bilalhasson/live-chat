@@ -19,11 +19,22 @@ class SignupForm(UserCreationForm):
 class SiteForm(forms.ModelForm):
     class Meta:
         model = Site
-        fields = ("name", "allowed_domain", "color", "position", "greeting")
+        fields = (
+            "name", "allowed_domain", "color", "position", "greeting",
+            "ai_enabled", "ai_tone", "ai_context",
+        )
         widgets = {
             "color": forms.TextInput(attrs={"type": "color"}),
             "allowed_domain": forms.TextInput(attrs={"placeholder": "example.com (blank = any origin)"}),
+            "ai_tone": forms.Textarea(attrs={"rows": 2, "placeholder": "e.g. Warm and casual; use the visitor's first name."}),
+            "ai_context": forms.Textarea(attrs={"rows": 4, "placeholder": "What your business does, key facts, hours, policies…"}),
+        }
+        labels = {
+            "ai_enabled": "AI suggested replies",
+            "ai_tone": "AI tone of voice",
+            "ai_context": "AI business context",
         }
         help_texts = {
             "allowed_domain": "Lock the widget to this domain (and subdomains). Leave blank to allow any origin.",
+            "ai_context": "Grounds the AI's drafts in your business. The single biggest lever on reply quality.",
         }

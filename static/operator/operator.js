@@ -13,11 +13,14 @@
   var threadEl = document.getElementById("thread");
   var replyEl = document.getElementById("reply");
   var typingEl = document.getElementById("typing");
+  var suggestEl = document.getElementById("suggest");
 
   var convs = {};      // id -> conversation summary
   var unread = {};     // id -> count
   var online = {};     // id -> visitor-online bool
   var currentId = null;
+  var aiGlobal = false;   // is the AI feature configured at all (key present)?
+  var suggesting = false; // a draft is currently streaming
   var baseTitle = document.title;
 
   var wsUrl = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/operator/";
@@ -35,8 +38,10 @@
     switch (data.type) {
       case "conversations":
         convs = {}; online = {};
+        aiGlobal = !!data.ai_enabled;
         data.conversations.forEach(function (c) { convs[c.id] = c; online[c.id] = !!c.online; });
         renderList();
+        updateSuggest();
         break;
       case "conversation_update":
         var c = data.conversation;
@@ -68,6 +73,26 @@
           online[data.conversation_id] = data.online;
           renderList();
         }
+        break;
+      case "suggestion_start":
+        if (data.conversation_id === currentId) replyEl.value = "";
+        break;
+      case "suggestion_delta":
+        if (data.conversation_id === currentId) {
+          replyEl.value += data.text;
+          replyEl.scrollLeft = replyEl.scrollWidth;
+        }
+        break;
+      case "suggestion_end":
+        suggesting = false;
+        suggestEl.textContent = "✨ Suggest";
+        updateSuggest();
+        replyEl.focus();
+        break;
+      case "suggestion_error":
+        suggesting = false;
+        updateSuggest();
+        flashSuggestError(data.message);
         break;
     }
   }
@@ -110,6 +135,7 @@
     replyEl.placeholder = "Type a reply and press Enter…";
     replyEl.focus();
     unlockAudioAndNotify();
+    updateSuggest();
     socket.send(JSON.stringify({ action: "open", conversation_id: id }));
   }
 
@@ -178,6 +204,33 @@
       g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.3);
       o.start(); o.stop(audioCtx.currentTime + 0.3);
     } catch (e) {}
+  }
+
+  // --- AI suggested replies ---
+  function updateSuggest() {
+    if (!suggestEl) return;
+    suggestEl.classList.toggle("hidden", !aiGlobal);
+    var canSuggest = aiGlobal && currentId !== null &&
+      convs[currentId] && convs[currentId].ai && !suggesting;
+    suggestEl.disabled = !canSuggest;
+  }
+
+  var suggestErrTimer;
+  function flashSuggestError(msg) {
+    if (!suggestEl) return;
+    suggestEl.textContent = "⚠ " + (msg || "AI error");
+    clearTimeout(suggestErrTimer);
+    suggestErrTimer = setTimeout(function () { suggestEl.textContent = "✨ Suggest"; }, 3000);
+  }
+
+  if (suggestEl) {
+    suggestEl.addEventListener("click", function () {
+      if (currentId === null || suggesting || !socket || socket.readyState !== WebSocket.OPEN) return;
+      suggesting = true;
+      suggestEl.textContent = "✨ Drafting…";
+      updateSuggest();
+      socket.send(JSON.stringify({ action: "suggest", conversation_id: currentId }));
+    });
   }
 
   connect();

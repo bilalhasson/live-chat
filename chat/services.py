@@ -67,6 +67,14 @@ def conversation_summary(conversation_id) -> dict:
 
 
 @database_sync_to_async
+def ai_config_for_conversation(conversation_id):
+    """(site_name, ai_tone, ai_context, ai_enabled) for the AI suggestion prompt."""
+    conv = Conversation.objects.select_related("site").get(id=conversation_id)
+    s = conv.site
+    return s.name, s.ai_tone, s.ai_context, s.ai_enabled
+
+
+@database_sync_to_async
 def conv_site_id(conversation_id, allowed_site_ids):
     """Return the conversation's site_id iff it belongs to an allowed site, else None."""
     return (

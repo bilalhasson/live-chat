@@ -31,11 +31,16 @@ C_CONVERSATIONS = "conversations"
 C_CONVERSATION_UPDATE = "conversation_update"
 C_TYPING = "typing"
 C_PRESENCE = "presence"
+C_SUGGESTION_START = "suggestion_start"
+C_SUGGESTION_DELTA = "suggestion_delta"
+C_SUGGESTION_END = "suggestion_end"
+C_SUGGESTION_ERROR = "suggestion_error"
 
 # --- inbound client actions ---
 A_OPEN = "open"
 A_MESSAGE = "message"
 A_TYPING = "typing"
+A_SUGGEST = "suggest"
 
 # presence scopes
 SCOPE_OPERATOR = "operator"
@@ -72,8 +77,8 @@ def client_message(message: dict) -> dict:
     return {"type": C_MESSAGE, "message": message}
 
 
-def client_conversations(conversations: list) -> dict:
-    return {"type": C_CONVERSATIONS, "conversations": conversations}
+def client_conversations(conversations: list, ai_enabled: bool = False) -> dict:
+    return {"type": C_CONVERSATIONS, "conversations": conversations, "ai_enabled": ai_enabled}
 
 
 def client_conversation_update(conversation: dict) -> dict:
@@ -86,3 +91,19 @@ def client_typing(conversation_id, role: str, is_typing: bool) -> dict:
 
 def client_presence(scope: str, online: bool, conversation_id=None) -> dict:
     return {"type": C_PRESENCE, "scope": scope, "online": online, "conversation_id": conversation_id}
+
+
+def client_suggestion_start(conversation_id) -> dict:
+    return {"type": C_SUGGESTION_START, "conversation_id": conversation_id}
+
+
+def client_suggestion_delta(conversation_id, text: str) -> dict:
+    return {"type": C_SUGGESTION_DELTA, "conversation_id": conversation_id, "text": text}
+
+
+def client_suggestion_end(conversation_id) -> dict:
+    return {"type": C_SUGGESTION_END, "conversation_id": conversation_id}
+
+
+def client_suggestion_error(conversation_id, message: str) -> dict:
+    return {"type": C_SUGGESTION_ERROR, "conversation_id": conversation_id, "message": message}

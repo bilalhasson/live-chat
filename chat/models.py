@@ -30,6 +30,11 @@ class Site(models.Model):
     position = models.CharField(max_length=16, choices=POSITIONS, default="bottom-right")
     greeting = models.CharField(max_length=200, default="Hi! How can we help?")
 
+    # AI-assisted replies (operator-side only; never served to the widget).
+    ai_enabled = models.BooleanField(default=True)
+    ai_tone = models.TextField(blank=True, default="")
+    ai_context = models.TextField(blank=True, default="")
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

@@ -25,7 +25,7 @@ from urllib.parse import parse_qs
 
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-from chat import events, presence, security, services
+from chat import ai, events, presence, security, services
 from chat.groups import conversation_group, site_operators_group, site_visitors_group
 from chat.models import Message
 
@@ -141,6 +141,7 @@ class OperatorConsumer(AsyncWebsocketConsumer):
             return
 
         self.current_conv = None
+        self._suggesting = False
         for sid in self.site_ids:
             await self.channel_layer.group_add(site_operators_group(sid), self.channel_name)
             count, became_online = await presence.operator_join(sid, self.channel_name)
@@ -151,7 +152,7 @@ class OperatorConsumer(AsyncWebsocketConsumer):
         await self.accept()
 
         await self.send(text_data=json.dumps(
-            events.client_conversations(await self._conversation_list())
+            events.client_conversations(await self._conversation_list(), ai.suggestions_enabled())
         ))
 
     async def disconnect(self, code):
@@ -177,6 +178,8 @@ class OperatorConsumer(AsyncWebsocketConsumer):
             await self._reply(data.get("conversation_id"), (data.get("body") or "").strip())
         elif action == events.A_TYPING:
             await self._typing(data.get("conversation_id"), bool(data.get("typing")))
+        elif action == events.A_SUGGEST:
+            await self._suggest(data.get("conversation_id"))
 
     async def _conversation_list(self) -> list:
         """Conversations for this operator's sites, tagged with live-visitor presence."""
@@ -218,6 +221,33 @@ class OperatorConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_send(
             conversation_group(conversation_id), events.typing(conversation_id, self.role, is_typing)
         )
+
+    async def _suggest(self, conversation_id):
+        # Ownership + one-in-flight-per-socket guard.
+        if await services.conv_site_id(conversation_id, self.site_ids) is None or self._suggesting:
+            return
+        if not ai.suggestions_enabled():
+            await self._send(events.client_suggestion_error(conversation_id, "AI is not configured."))
+            return
+        name, tone, context, ai_enabled = await services.ai_config_for_conversation(conversation_id)
+        if not ai_enabled:
+            await self._send(events.client_suggestion_error(conversation_id, "AI is turned off for this site."))
+            return
+
+        self._suggesting = True
+        try:
+            history = await services.load_history(conversation_id)
+            await self._send(events.client_suggestion_start(conversation_id))
+            async for delta in ai.stream_suggestion(name, tone, context, history):
+                await self._send(events.client_suggestion_delta(conversation_id, delta))
+            await self._send(events.client_suggestion_end(conversation_id))
+        except Exception:
+            await self._send(events.client_suggestion_error(conversation_id, "Couldn't draft a reply. Try again."))
+        finally:
+            self._suggesting = False
+
+    async def _send(self, payload: dict):
+        await self.send(text_data=json.dumps(payload))
 
     # --- channel-layer event handlers ---
     async def chat_message(self, event):
