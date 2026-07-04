@@ -13,8 +13,15 @@
       a different origin — the real test of the embedding + WebSocket story.
     </p>
 
-    <!-- Points at the live Railway backend. Open this file directly (file://) or
-         host it on any other origin to prove cross-origin embedding works. -->
-    <script src="https://web-production-dc5e0.up.railway.app/widget.js" defer></script>
+    <!-- Points at the live backend. Open this file directly (file://) or host it on
+         any other origin to prove cross-origin embedding + Shadow DOM isolation. -->
+    <script
+      src="https://live-chat.bilalhasson.com/widget.js"
+      data-site-key="aKLyIlGbHT0_USsFXagi0wOBdUHJrCY5"
+      data-color="#0f766e"
+      data-position="bottom-left"
+      data-greeting="Hi from a cross-origin page!"
+      defer
+    ></script>
   </body>
 </html>

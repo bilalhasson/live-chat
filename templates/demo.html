@@ -34,8 +34,15 @@
     </p>
 
     <!-- The one line a site owner would paste. `data-site-key` identifies the
-         tenant. On a real host site the src would be an absolute URL, e.g.
-         https://your-app.up.railway.app/widget.js -->
-    <script src="/widget.js" data-site-key="{{ site_key }}" defer></script>
+         tenant; the rest is optional theming. On a real host site the src would be
+         an absolute URL, e.g. https://live-chat.bilalhasson.com/widget.js -->
+    <script
+      src="/widget.js"
+      data-site-key="{{ site_key }}"
+      data-color="#4f46e5"
+      data-position="bottom-right"
+      data-greeting="👋 Hi there! How can we help?"
+      defer
+    ></script>
   </body>
 </html>

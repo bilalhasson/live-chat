@@ -22,7 +22,7 @@ from urllib.parse import parse_qs
 
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-from chat import services
+from chat import security, services
 from chat.groups import conversation_group, site_operators_group
 from chat.models import Message
 
@@ -36,6 +36,9 @@ class VisitorConsumer(AsyncWebsocketConsumer):
         self.site = await services.get_site(site_key)
         if self.site is None:
             await self.close(code=4004)  # unknown site key
+            return
+        if not security.origin_allowed_for_site(self.scope, self.site.allowed_domain):
+            await self.close(code=4403)  # origin not allowed for this site
             return
 
         self.visitor = await services.get_or_create_visitor(self.site, token)
@@ -85,6 +88,9 @@ class OperatorConsumer(AsyncWebsocketConsumer):
         user = self.scope.get("user")
         if user is None or not user.is_authenticated:
             await self.close(code=4001)  # not logged in
+            return
+        if not security.origin_is_own_host(self.scope):
+            await self.close(code=4403)  # cross-origin operator connection
             return
 
         self.site_ids = await services.sites_for_user(user.id)
