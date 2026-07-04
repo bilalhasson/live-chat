@@ -1,3 +1,4 @@
+{% load static %}
 <!doctype html>
 <html lang="en">
   <head>
@@ -18,13 +19,16 @@
       .conv { padding: 12px 14px; border-bottom: 1px solid #f3f4f6; cursor: pointer; }
       .conv:hover { background: #f9fafb; }
       .conv.active { background: #eff6ff; }
-      .conv .who { font-weight: 600; font-size: 13px; }
+      .conv .who { font-weight: 600; font-size: 13px; display: flex; align-items: center; }
       .conv .preview { font-size: 12px; color: #6b7280; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; margin-right: 6px; flex: none; }
+      .badge { margin-left: auto; background: #ef4444; color: #fff; font-size: 11px; border-radius: 10px; padding: 1px 7px; }
       #thread-wrap { flex: 1; display: flex; flex-direction: column; min-width: 0; }
       #thread { flex: 1; overflow-y: auto; padding: 16px; background: #fafafa; }
       .msg { max-width: 70%; padding: 8px 12px; border-radius: 12px; margin-bottom: 8px; font-size: 14px; line-height: 1.35; }
       .msg.visitor { background: #fff; border: 1px solid #e5e7eb; }
       .msg.operator { background: #2563eb; color: #fff; margin-left: auto; }
+      #typing { display: none; padding: 4px 16px; font-size: 12px; color: #6b7280; font-style: italic; background: #fafafa; }
       #composer { display: flex; border-top: 1px solid #e5e7eb; }
       #composer input { flex: 1; border: none; padding: 14px 16px; font-size: 14px; outline: none; }
       #composer input:disabled { background: #f3f4f6; }
@@ -44,96 +48,13 @@
       <div id="list"></div>
       <div id="thread-wrap">
         <div id="thread"><div id="empty">Select a conversation</div></div>
+        <div id="typing"></div>
         <div id="composer">
           <input id="reply" type="text" placeholder="Select a conversation to reply…" disabled />
         </div>
       </div>
     </main>
 
-    <script>
-      (function () {
-        var statusEl = document.getElementById("status");
-        var listEl = document.getElementById("list");
-        var threadEl = document.getElementById("thread");
-        var replyEl = document.getElementById("reply");
-
-        var convs = {};        // id -> summary
-        var currentId = null;
-
-        var wsUrl = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/operator/";
-        var socket;
-
-        function connect() {
-          socket = new WebSocket(wsUrl);
-          socket.onopen = function () { statusEl.textContent = "· connected"; };
-          socket.onclose = function () { statusEl.textContent = "· disconnected, retrying…"; setTimeout(connect, 1500); };
-          socket.onmessage = function (e) {
-            var data = JSON.parse(e.data);
-            if (data.type === "conversations") {
-              convs = {};
-              data.conversations.forEach(function (c) { convs[c.id] = c; });
-              renderList();
-            } else if (data.type === "conversation_update") {
-              convs[data.conversation.id] = data.conversation;
-              renderList();
-            } else if (data.type === "history") {
-              if (data.conversation_id === currentId) renderThread(data.messages);
-            } else if (data.type === "message") {
-              if (data.message.conversation_id === currentId) appendMsg(data.message);
-            }
-          };
-        }
-
-        function renderList() {
-          var items = Object.values(convs).sort(function (a, b) {
-            return (b.last_message_at || "").localeCompare(a.last_message_at || "");
-          });
-          listEl.innerHTML = "";
-          items.forEach(function (c) {
-            var div = document.createElement("div");
-            div.className = "conv" + (c.id === currentId ? " active" : "");
-            var preview = c.last_role === "operator" ? "You: " + c.last_body : c.last_body;
-            div.innerHTML = '<div class="who">Visitor ' + c.visitor + '</div>' +
-                            '<div class="preview"></div>';
-            div.querySelector(".preview").textContent = preview || "(no messages yet)";
-            div.onclick = function () { openConv(c.id); };
-            listEl.appendChild(div);
-          });
-        }
-
-        function openConv(id) {
-          currentId = id;
-          renderList();
-          threadEl.innerHTML = "";
-          replyEl.disabled = false;
-          replyEl.placeholder = "Type a reply and press Enter…";
-          replyEl.focus();
-          socket.send(JSON.stringify({ action: "open", conversation_id: id }));
-        }
-
-        function renderThread(messages) {
-          threadEl.innerHTML = "";
-          messages.forEach(appendMsg);
-        }
-
-        function appendMsg(m) {
-          var div = document.createElement("div");
-          div.className = "msg " + m.role;
-          div.textContent = m.body;
-          threadEl.appendChild(div);
-          threadEl.scrollTop = threadEl.scrollHeight;
-        }
-
-        replyEl.addEventListener("keydown", function (e) {
-          if (e.key !== "Enter") return;
-          var body = replyEl.value.trim();
-          if (!body || currentId === null || !socket || socket.readyState !== WebSocket.OPEN) return;
-          socket.send(JSON.stringify({ action: "message", conversation_id: currentId, body: body }));
-          replyEl.value = "";
-        });
-
-        connect();
-      })();
-    </script>
+    <script src="{% static 'operator/operator.js' %}"></script>
   </body>
 </html>

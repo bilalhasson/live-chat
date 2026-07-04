@@ -1,18 +1,13 @@
 /*
- * Live-chat widget loader — Phase 2.
+ * Live-chat widget loader — Phase 3.
  *
- * A framework-agnostic, single-script-tag widget:
- *   - renders inside a Shadow DOM so the host page's CSS can't touch it (and
- *     vice-versa),
- *   - is configured entirely via data-* attributes on its own <script> tag,
- *   - connects to /ws/visitor/ for its Site and remembers the visitor across
- *     reloads via a localStorage token.
+ * Phase 2 gave us Shadow-DOM isolation + data-* theming. Phase 3 adds presence and
+ * typing: the header shows whether an operator is online/away, shows "typing…" when
+ * the operator is typing, and the widget sends its own (debounced) typing signal.
+ * Message-type strings mirror chat/events.py.
  *
- * Config (all optional except data-site-key):
- *   data-site-key   which Site (tenant) this widget belongs to
- *   data-color      accent colour (default #2563eb)
- *   data-position   "bottom-right" (default) or "bottom-left"
- *   data-greeting   opening message shown at the top of the panel
+ * Config (data-* on the <script> tag): data-site-key (required), data-color,
+ * data-position (bottom-right|bottom-left), data-greeting.
  */
 (function () {
   "use strict";
@@ -67,7 +62,9 @@
     "border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.18);display:none;flex-direction:column;",
     "overflow:hidden;margin-bottom:12px}",
     ".panel.open{display:flex}",
-    ".hdr{padding:14px 16px;color:#fff;font-size:15px;font-weight:600;background:#2563eb}",
+    ".hdr{padding:12px 16px;color:#fff;background:#2563eb}",
+    ".htitle{font-size:15px;font-weight:600}",
+    ".hsub{font-size:12px;opacity:.85;margin-top:2px;min-height:14px}",
     ".log{flex:1;padding:12px;overflow-y:auto;background:#fafafa}",
     ".row{display:flex;border-top:1px solid #e5e7eb}",
     ".inp{flex:1;border:none;padding:13px 14px;font-size:14px;outline:none;font-family:inherit}",
@@ -81,7 +78,7 @@
     "</style>",
     '<div class="wrap' + (position === "left" ? " left" : "") + '">',
     '  <div class="panel">',
-    '    <div class="hdr"></div>',
+    '    <div class="hdr"><div class="htitle">Chat with us</div><div class="hsub"></div></div>',
     '    <div class="log"></div>',
     '    <div class="row"><input class="inp" type="text" placeholder="Type a message…" /></div>',
     "  </div>",
@@ -91,14 +88,13 @@
 
   var panel = shadow.querySelector(".panel");
   var hdr = shadow.querySelector(".hdr");
+  var hsub = shadow.querySelector(".hsub");
   var log = shadow.querySelector(".log");
   var input = shadow.querySelector(".inp");
   var bubble = shadow.querySelector(".bubble");
 
-  // Apply the configured accent colour (set on elements, never injected into CSS).
   hdr.style.background = color;
   bubble.style.background = color;
-  hdr.textContent = "Chat with us";
 
   var panelOpen = false;
   bubble.addEventListener("click", function () {
@@ -107,32 +103,74 @@
     if (panelOpen) input.focus();
   });
 
+  // --- status line: presence, overridden transiently by "typing…" --------
+  var operatorOnline = null;      // null = unknown yet
+  function presenceText() {
+    if (operatorOnline === true) return "We're online";
+    if (operatorOnline === false) return "We're away — leave a message";
+    return "";
+  }
+  function refreshStatus() { hsub.textContent = presenceText(); }
+
+  var typingTimer;
+  function showOperatorTyping() {
+    hsub.textContent = "typing…";
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(refreshStatus, 4000);
+  }
+  function clearOperatorTyping() { clearTimeout(typingTimer); refreshStatus(); }
+
   // --- WebSocket --------------------------------------------------------
   var socket;
   function connect() {
-    if (!siteKey) { hdr.textContent = "Chat unavailable"; return; }
+    if (!siteKey) { hsub.textContent = "unavailable"; return; }
     socket = new WebSocket(wsUrl());
-    socket.onopen = function () { hdr.textContent = "Chat with us"; };
-    socket.onclose = function () { hdr.textContent = "Reconnecting…"; setTimeout(connect, 1500); };
+    socket.onopen = function () { refreshStatus(); };
+    socket.onclose = function () { hsub.textContent = "reconnecting…"; setTimeout(connect, 1500); };
     socket.onmessage = function (e) {
       var data = JSON.parse(e.data);
-      if (data.type === "welcome") {
-        setToken(data.token);
-      } else if (data.type === "history") {
-        renderIntro();
-        data.messages.forEach(addMessage);
-      } else if (data.type === "message") {
-        addMessage(data.message);
+      switch (data.type) {
+        case "welcome":
+          setToken(data.token);
+          break;
+        case "history":
+          renderIntro();
+          data.messages.forEach(addMessage);
+          break;
+        case "message":
+          clearOperatorTyping();
+          addMessage(data.message);
+          break;
+        case "presence":
+          if (data.scope === "operator") { operatorOnline = data.online; refreshStatus(); }
+          break;
+        case "typing":
+          if (data.role === "operator") { data.typing ? showOperatorTyping() : clearOperatorTyping(); }
+          break;
       }
     };
   }
 
+  // --- outgoing typing (debounced) --------------------------------------
+  var typingSent = false, typingIdle;
+  function sendTyping(on) {
+    if (!socket || socket.readyState !== WebSocket.OPEN || on === typingSent) return;
+    typingSent = on;
+    socket.send(JSON.stringify({ action: "typing", typing: on }));
+  }
+  input.addEventListener("input", function () {
+    sendTyping(true);
+    clearTimeout(typingIdle);
+    typingIdle = setTimeout(function () { sendTyping(false); }, 2500);
+  });
   input.addEventListener("keydown", function (e) {
     if (e.key !== "Enter") return;
     var body = input.value.trim();
     if (!body || !socket || socket.readyState !== WebSocket.OPEN) return;
     socket.send(JSON.stringify({ body: body }));
     input.value = "";
+    clearTimeout(typingIdle);
+    sendTyping(false);
   });
 
   connect();
@@ -140,10 +178,7 @@
   // --- helpers ----------------------------------------------------------
   function renderIntro() {
     log.innerHTML = "";
-    if (greeting) {
-      var intro = mkBubble("operator", greeting);
-      log.appendChild(intro);
-    }
+    if (greeting) log.appendChild(mkBubble("operator", greeting));
   }
 
   function addMessage(m) {
