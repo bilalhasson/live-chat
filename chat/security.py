@@ -48,7 +48,8 @@ def origin_allowed_for_site(scope, allowed_domain: str) -> bool:
     """True if the widget's Origin is allowed for this Site."""
     if not allowed_domain:
         return True  # Site accepts any origin (e.g. the demo Site)
+    # A pinned Site requires a matching, verifiable origin. A missing or opaque
+    # origin — "null" from file:// or a sandboxed iframe — can't be trusted to be
+    # the pinned domain, so reject it.
     host = origin_host(scope)
-    if host is None:
-        return True  # non-browser client
-    return _matches(host, allowed_domain)
+    return host is not None and _matches(host, allowed_domain)
