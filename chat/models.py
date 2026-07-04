@@ -38,6 +38,9 @@ class Site(models.Model):
     # Pre-chat form: require a name/email before the visitor can chat.
     pre_chat_enabled = models.BooleanField(default=False)
 
+    # Email the visitor a transcript when a chat ends (needs their email + Resend).
+    transcript_enabled = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

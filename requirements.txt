@@ -10,3 +10,4 @@ whitenoise==6.8.2
 dj-database-url==2.3.0
 psycopg[binary]==3.2.3
 anthropic==0.116.0
+resend==2.32.2

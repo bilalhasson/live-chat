@@ -23,11 +23,12 @@ Presence and typing are ephemeral — broadcast over the channel layer, never pe
 import json
 from urllib.parse import parse_qs
 
+from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 
-from chat import ai, events, presence, security, services
+from chat import ai, events, presence, security, services, transcripts
 from chat.groups import conversation_group, site_operators_group, site_visitors_group
 from chat.models import Message
 
@@ -277,6 +278,12 @@ class OperatorConsumer(AsyncWebsocketConsumer):
         if self.current_conv == conversation_id:
             await self.channel_layer.group_discard(conversation_group(conversation_id), self.channel_name)
             self.current_conv = None
+        # Email the visitor a transcript (after the broadcasts, so ending isn't delayed;
+        # a mail failure must never break the end flow).
+        try:
+            await sync_to_async(transcripts.send_transcript)(conversation_id)
+        except Exception:
+            pass
 
     async def _suggest(self, conversation_id):
         # Ownership + one-in-flight-per-socket guard.

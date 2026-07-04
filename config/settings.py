@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "channels",
     "chat",
+    "mailer",
 ]
 
 MIDDLEWARE = [
