@@ -131,7 +131,7 @@ USE_TZ = True
 
 # Operator auth redirects.
 LOGIN_URL = "/login/"
-LOGIN_REDIRECT_URL = "/operator/"
+LOGIN_REDIRECT_URL = "/sites/"
 LOGOUT_REDIRECT_URL = "/login/"
 
 # --- Static files ---------------------------------------------------------

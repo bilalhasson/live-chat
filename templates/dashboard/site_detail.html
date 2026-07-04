@@ -1,0 +1,30 @@
+{% extends "dashboard/base.html" %}
+{% block title %}{{ site.name }}{% endblock %}
+{% block content %}
+  <p><a href="{% url 'sites' %}">← All sites</a></p>
+  <h1>{{ site.name }}</h1>
+
+  <h2>Embed snippet</h2>
+  <div class="card">
+    <p class="helptext">Paste this on any page you want the widget to appear on:</p>
+    <textarea readonly rows="2" onclick="this.select()">{{ snippet }}</textarea>
+  </div>
+
+  <h2>Settings</h2>
+  <div class="card">
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button class="primary" type="submit">Save changes</button>
+    </form>
+  </div>
+
+  <h2>Danger zone</h2>
+  <div class="card">
+    <form method="post" action="{% url 'site_delete' site.pk %}"
+          onsubmit="return confirm('Delete this site and all its conversations?');">
+      {% csrf_token %}
+      <button class="danger" type="submit">Delete site</button>
+    </form>
+  </div>
+{% endblock %}

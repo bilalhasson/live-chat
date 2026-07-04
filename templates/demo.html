@@ -29,20 +29,14 @@
     </p>
     <p>
       Chat here as a visitor; reply from the
-      <a href="/operator/">operator dashboard</a> in another window and watch
-      messages flow live in both directions.
+      <a href="/inbox/">operator inbox</a> in another window and watch messages flow
+      live in both directions. Want your own widget? <a href="/signup/">Sign up</a>.
     </p>
 
-    <!-- The one line a site owner would paste. `data-site-key` identifies the
-         tenant; the rest is optional theming. On a real host site the src would be
-         an absolute URL, e.g. https://live-chat.bilalhasson.com/widget.js -->
-    <script
-      src="/widget.js"
-      data-site-key="{{ site_key }}"
-      data-color="#4f46e5"
-      data-position="bottom-right"
-      data-greeting="👋 Hi there! How can we help?"
-      defer
-    ></script>
+    <!-- The one line a site owner pastes. `data-site-key` identifies the tenant;
+         appearance is configured in the dashboard and fetched by the widget. On a
+         real host site the src would be an absolute URL, e.g.
+         https://live-chat.bilalhasson.com/widget.js -->
+    <script src="/widget.js" data-site-key="{{ site_key }}" defer></script>
   </body>
 </html>

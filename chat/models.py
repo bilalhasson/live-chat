@@ -18,14 +18,31 @@ def gen_key() -> str:
 class Site(models.Model):
     """A tenant: one embeddable widget, identified publicly by `public_key`."""
 
+    POSITIONS = [("bottom-right", "Bottom right"), ("bottom-left", "Bottom left")]
+
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="sites")
     name = models.CharField(max_length=120)
     public_key = models.CharField(max_length=64, unique=True, default=gen_key, db_index=True)
     allowed_domain = models.CharField(max_length=255, blank=True, default="")  # used for origin checks in Phase 2
+
+    # Widget appearance — edited in the dashboard, served to the widget by config.json.
+    color = models.CharField(max_length=7, default="#2563eb")
+    position = models.CharField(max_length=16, choices=POSITIONS, default="bottom-right")
+    greeting = models.CharField(max_length=200, default="Hi! How can we help?")
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.name} ({self.public_key[:8]}…)"
+
+    def config(self) -> dict:
+        """Public widget config (safe to expose cross-origin)."""
+        return {
+            "name": self.name,
+            "color": self.color,
+            "position": self.position,
+            "greeting": self.greeting,
+        }
 
 
 class Visitor(models.Model):

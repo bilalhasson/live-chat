@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}Dashboard{% endblock %} — Live Chat</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: system-ui, sans-serif; color: #111827; background: #f9fafb; }
+      header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; background: #111827; color: #fff; }
+      header a { color: #93c5fd; text-decoration: none; font-size: 14px; }
+      header a:hover { text-decoration: underline; }
+      header .spacer { flex: 1; }
+      header .user { font-size: 13px; opacity: .85; }
+      header form { margin: 0; }
+      header button { background: none; border: none; color: #93c5fd; font-size: 14px; cursor: pointer; padding: 0; }
+      main { max-width: 640px; margin: 32px auto; padding: 0 20px; }
+      h1 { font-size: 22px; }
+      h2 { font-size: 16px; margin-top: 28px; }
+      .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+      label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+      input:not([type="color"]), textarea, select { width: 100%; padding: 9px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: inherit; font-size: 14px; }
+      .helptext { font-size: 12px; color: #6b7280; }
+      button.primary { margin-top: 16px; padding: 9px 16px; border: none; border-radius: 6px; background: #2563eb; color: #fff; font-size: 14px; cursor: pointer; }
+      button.danger { padding: 8px 14px; border: 1px solid #ef4444; border-radius: 6px; background: #fff; color: #ef4444; font-size: 14px; cursor: pointer; }
+      code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+      ul.sites { list-style: none; padding: 0; }
+      ul.sites li { padding: 12px 0; border-bottom: 1px solid #f3f4f6; }
+      ul.errorlist { color: #b91c1c; font-size: 13px; padding-left: 18px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a href="{% url 'sites' %}">Sites</a>
+      <a href="{% url 'inbox' %}">Inbox</a>
+      <span class="spacer"></span>
+      <span class="user">{{ user.username }}</span>
+      <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit">Log out</button></form>
+    </header>
+    <main>{% block content %}{% endblock %}</main>
+  </body>
+</html>

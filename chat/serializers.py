@@ -22,6 +22,7 @@ def serialize_message(msg: Message) -> dict:
 def serialize_conversation(conv: Conversation, last_message: Message | None) -> dict:
     return {
         "id": conv.id,
+        "site": conv.site.name,
         "visitor": conv.visitor.token[:8],
         "last_body": last_message.body if last_message else "",
         "last_role": last_message.sender_role if last_message else "",

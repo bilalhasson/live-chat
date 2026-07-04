@@ -86,6 +86,7 @@
       who.className = "who";
       if (online[c.id]) { var dot = document.createElement("span"); dot.className = "dot"; who.appendChild(dot); }
       who.appendChild(document.createTextNode("Visitor " + c.visitor));
+      if (c.site) { var st = document.createElement("span"); st.className = "site"; st.textContent = c.site; who.appendChild(st); }
       if (unread[c.id]) {
         var b = document.createElement("span"); b.className = "badge"; b.textContent = unread[c.id]; who.appendChild(b);
       }

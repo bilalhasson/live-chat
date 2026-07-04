@@ -54,7 +54,7 @@ def sites_for_user(user_id) -> list:
 def conversations_for_sites(site_ids) -> list:
     convs = (
         Conversation.objects.filter(site_id__in=site_ids)
-        .select_related("visitor")
+        .select_related("visitor", "site")
         .order_by(F("last_message_at").desc(nulls_last=True), "-id")
     )
     return [serialize_conversation(c, c.messages.last()) for c in convs]
@@ -62,7 +62,7 @@ def conversations_for_sites(site_ids) -> list:
 
 @database_sync_to_async
 def conversation_summary(conversation_id) -> dict:
-    conv = Conversation.objects.select_related("visitor").get(id=conversation_id)
+    conv = Conversation.objects.select_related("visitor", "site").get(id=conversation_id)
     return serialize_conversation(conv, conv.messages.last())
 
 
