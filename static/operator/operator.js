@@ -15,6 +15,7 @@
   var typingEl = document.getElementById("typing");
   var suggestEl = document.getElementById("suggest");
   var cannedMenuEl = document.getElementById("canned-menu");
+  var threadHeaderEl = document.getElementById("thread-header");
 
   var canned = [];       // current conversation's saved replies
   var cannedItems = [];  // currently-filtered subset shown in the menu
@@ -53,10 +54,11 @@
         convs[c.id] = c;
         if (c.id !== currentId && c.last_role === "visitor") {
           unread[c.id] = (unread[c.id] || 0) + 1;
-          notify("Visitor " + c.visitor, c.last_body);
+          notify(c.name || ("Visitor " + c.visitor), c.last_body);
           beep();
         }
         renderList();
+        if (c.id === currentId) renderThreadHeader();
         break;
       case "history":
         if (data.conversation_id === currentId) renderThread(data.messages);
@@ -102,6 +104,21 @@
       case "canned":
         if (data.conversation_id === currentId) canned = data.responses || [];
         break;
+      case "conversation_removed":
+        var rid = data.conversation_id;
+        delete convs[rid]; delete unread[rid]; delete online[rid];
+        if (rid === currentId) {
+          currentId = null;
+          threadEl.innerHTML = '<div id="empty">Select a conversation</div>';
+          threadHeaderEl.classList.add("hidden");
+          replyEl.disabled = true;
+          replyEl.value = "";
+          replyEl.placeholder = "Select a conversation to reply…";
+          hideCannedMenu();
+          updateSuggest();
+        }
+        renderList();
+        break;
     }
   }
 
@@ -118,7 +135,7 @@
       var who = document.createElement("div");
       who.className = "who";
       if (online[c.id]) { var dot = document.createElement("span"); dot.className = "dot"; who.appendChild(dot); }
-      who.appendChild(document.createTextNode("Visitor " + c.visitor));
+      who.appendChild(document.createTextNode(c.name || ("Visitor " + c.visitor)));
       if (c.site) { var st = document.createElement("span"); st.className = "site"; st.textContent = c.site; who.appendChild(st); }
       if (unread[c.id]) {
         var b = document.createElement("span"); b.className = "badge"; b.textContent = unread[c.id]; who.appendChild(b);
@@ -146,7 +163,42 @@
     replyEl.focus();
     unlockAudioAndNotify();
     updateSuggest();
+    renderThreadHeader();
     socket.send(JSON.stringify({ action: "open", conversation_id: id }));
+  }
+
+  function renderThreadHeader() {
+    var c = convs[currentId];
+    if (!c) { threadHeaderEl.classList.add("hidden"); return; }
+    threadHeaderEl.innerHTML = "";
+    var info = document.createElement("div");
+    var name = document.createElement("div");
+    name.className = "th-name";
+    name.textContent = c.name || ("Visitor " + c.visitor);
+    info.appendChild(name);
+    var bits = [];
+    if (c.email) bits.push(c.email);
+    if (c.page_url) bits.push(c.page_url);
+    if (bits.length) {
+      var meta = document.createElement("div");
+      meta.className = "th-meta";
+      meta.textContent = bits.join("  ·  ");
+      info.appendChild(meta);
+    }
+    threadHeaderEl.appendChild(info);
+    var end = document.createElement("button");
+    end.id = "end-chat";
+    end.type = "button";
+    end.textContent = "End chat";
+    end.addEventListener("click", endCurrent);
+    threadHeaderEl.appendChild(end);
+    threadHeaderEl.classList.remove("hidden");
+  }
+
+  function endCurrent() {
+    if (currentId === null || !socket || socket.readyState !== WebSocket.OPEN) return;
+    if (!confirm("End this chat? The visitor will be thanked and it'll be removed from your inbox.")) return;
+    socket.send(JSON.stringify({ action: "end", conversation_id: currentId }));
   }
 
   function renderThread(messages) { threadEl.innerHTML = ""; messages.forEach(appendMsg); }

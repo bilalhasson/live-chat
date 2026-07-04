@@ -35,6 +35,9 @@ class Site(models.Model):
     ai_tone = models.TextField(blank=True, default="")
     ai_context = models.TextField(blank=True, default="")
 
+    # Pre-chat form: require a name/email before the visitor can chat.
+    pre_chat_enabled = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -47,6 +50,7 @@ class Site(models.Model):
             "color": self.color,
             "position": self.position,
             "greeting": self.greeting,
+            "pre_chat": self.pre_chat_enabled,
         }
 
 
@@ -55,6 +59,8 @@ class Visitor(models.Model):
 
     site = models.ForeignKey(Site, on_delete=models.CASCADE, related_name="visitors")
     token = models.CharField(max_length=64, unique=True, default=gen_key, db_index=True)
+    name = models.CharField(max_length=120, blank=True, default="")
+    email = models.EmailField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -64,8 +70,10 @@ class Visitor(models.Model):
 class Conversation(models.Model):
     site = models.ForeignKey(Site, on_delete=models.CASCADE, related_name="conversations")
     visitor = models.ForeignKey(Visitor, on_delete=models.CASCADE, related_name="conversations")
+    page_url = models.CharField(max_length=500, blank=True, default="")  # host page the visitor is on
     created_at = models.DateTimeField(auto_now_add=True)
     last_message_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)  # set when an operator ends the chat
 
     def __str__(self):
         return f"Conversation #{self.pk} ({self.visitor.token[:8]}…)"

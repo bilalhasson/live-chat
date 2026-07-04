@@ -20,6 +20,8 @@ OPERATOR = "operator"
 # --- channel-layer event types (group_send "type") ---
 CHAT_MESSAGE = "chat.message"
 CONVERSATION_UPDATE = "conversation.update"
+CONVERSATION_ENDED = "conversation.ended"
+CONVERSATION_REMOVED = "conversation.removed"
 TYPING = "typing.event"
 PRESENCE = "presence.event"
 
@@ -36,12 +38,18 @@ C_SUGGESTION_DELTA = "suggestion_delta"
 C_SUGGESTION_END = "suggestion_end"
 C_SUGGESTION_ERROR = "suggestion_error"
 C_CANNED = "canned"
+C_IDENTIFIED = "identified"
+C_IDENTIFY_ERROR = "identify_error"
+C_ENDED = "ended"
+C_CONVERSATION_REMOVED = "conversation_removed"
 
 # --- inbound client actions ---
 A_OPEN = "open"
 A_MESSAGE = "message"
 A_TYPING = "typing"
 A_SUGGEST = "suggest"
+A_IDENTIFY = "identify"
+A_END = "end"
 
 # presence scopes
 SCOPE_OPERATOR = "operator"
@@ -57,6 +65,14 @@ def conversation_update(conversation: dict) -> dict:
     return {"type": CONVERSATION_UPDATE, "conversation": conversation}
 
 
+def conversation_ended(conversation_id) -> dict:
+    return {"type": CONVERSATION_ENDED, "conversation_id": conversation_id}
+
+
+def conversation_removed(conversation_id) -> dict:
+    return {"type": CONVERSATION_REMOVED, "conversation_id": conversation_id}
+
+
 def typing(conversation_id, role: str, is_typing: bool) -> dict:
     return {"type": TYPING, "conversation_id": conversation_id, "role": role, "typing": is_typing}
 
@@ -66,8 +82,8 @@ def presence(scope: str, online: bool, conversation_id=None) -> dict:
 
 
 # --- outbound client payload builders (json.dumps'd and sent to the browser) ---
-def client_welcome(token: str, conversation_id) -> dict:
-    return {"type": C_WELCOME, "token": token, "conversation_id": conversation_id}
+def client_welcome(token: str, conversation_id, identified: bool = True) -> dict:
+    return {"type": C_WELCOME, "token": token, "conversation_id": conversation_id, "identified": identified}
 
 
 def client_history(messages: list, conversation_id=None) -> dict:
@@ -112,3 +128,19 @@ def client_suggestion_error(conversation_id, message: str) -> dict:
 
 def client_canned(conversation_id, responses: list) -> dict:
     return {"type": C_CANNED, "conversation_id": conversation_id, "responses": responses}
+
+
+def client_identified() -> dict:
+    return {"type": C_IDENTIFIED}
+
+
+def client_identify_error(message: str) -> dict:
+    return {"type": C_IDENTIFY_ERROR, "message": message}
+
+
+def client_ended() -> dict:
+    return {"type": C_ENDED}
+
+
+def client_conversation_removed(conversation_id) -> dict:
+    return {"type": C_CONVERSATION_REMOVED, "conversation_id": conversation_id}

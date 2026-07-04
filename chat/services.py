@@ -8,6 +8,7 @@ model instances), so the consumers never run a query in async context themselves
 
 from channels.db import database_sync_to_async
 from django.db.models import F
+from django.utils import timezone
 
 from chat.models import Conversation, Message, Site, Visitor
 from chat.serializers import serialize_conversation, serialize_message
@@ -29,8 +30,31 @@ def get_or_create_visitor(site: Site, token: str) -> Visitor:
 
 @database_sync_to_async
 def get_or_create_conversation(site: Site, visitor: Visitor) -> Conversation:
-    conv = Conversation.objects.filter(visitor=visitor).order_by("-created_at").first()
+    # Skip ended conversations so a visitor who returns after an operator ended their
+    # chat starts a fresh one rather than re-joining the closed thread.
+    conv = (
+        Conversation.objects.filter(visitor=visitor, ended_at__isnull=True)
+        .order_by("-created_at")
+        .first()
+    )
     return conv or Conversation.objects.create(site=site, visitor=visitor)
+
+
+@database_sync_to_async
+def end_conversation(conversation_id) -> None:
+    Conversation.objects.filter(id=conversation_id, ended_at__isnull=True).update(
+        ended_at=timezone.now()
+    )
+
+
+@database_sync_to_async
+def set_conversation_page(conversation_id, url: str) -> None:
+    Conversation.objects.filter(id=conversation_id).update(page_url=url[:500])
+
+
+@database_sync_to_async
+def set_visitor_identity(visitor_id, name: str, email: str) -> None:
+    Visitor.objects.filter(id=visitor_id).update(name=name[:120], email=email)
 
 
 @database_sync_to_async
@@ -53,7 +77,7 @@ def sites_for_user(user_id) -> list:
 @database_sync_to_async
 def conversations_for_sites(site_ids) -> list:
     convs = (
-        Conversation.objects.filter(site_id__in=site_ids)
+        Conversation.objects.filter(site_id__in=site_ids, ended_at__isnull=True)
         .select_related("visitor", "site")
         .order_by(F("last_message_at").desc(nulls_last=True), "-id")
     )

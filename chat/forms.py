@@ -21,7 +21,7 @@ class SiteForm(forms.ModelForm):
         model = Site
         fields = (
             "name", "allowed_domain", "color", "position", "greeting",
-            "ai_enabled", "ai_tone", "ai_context",
+            "pre_chat_enabled", "ai_enabled", "ai_tone", "ai_context",
         )
         widgets = {
             "color": forms.TextInput(attrs={"type": "color"}),
@@ -30,12 +30,14 @@ class SiteForm(forms.ModelForm):
             "ai_context": forms.Textarea(attrs={"rows": 4, "placeholder": "What your business does, key facts, hours, policies…"}),
         }
         labels = {
+            "pre_chat_enabled": "Pre-chat form",
             "ai_enabled": "AI suggested replies",
             "ai_tone": "AI tone of voice",
             "ai_context": "AI business context",
         }
         help_texts = {
             "allowed_domain": "Lock the widget to this domain (and subdomains). Leave blank to allow any origin.",
+            "pre_chat_enabled": "Ask visitors for their name and email before they can start chatting.",
             "ai_context": "Grounds the AI's drafts in your business. The single biggest lever on reply quality.",
         }
 
