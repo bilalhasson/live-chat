@@ -28,10 +28,12 @@ def enabled() -> bool:
     return bool(os.environ.get("RESEND_API_KEY"))
 
 
-def send_email(to: str, subject: str, text: str) -> bool:
-    """Send a plain-text email via Resend. Returns True on success, False otherwise.
+def send_email(to: str, subject: str, text: str, html: str = None) -> bool:
+    """Send an email via Resend. Returns True on success, False otherwise.
 
-    Never raises: a mail failure must not break the caller (e.g. ending a chat).
+    `text` is the plain-text body; pass `html` to also send a rich part (Resend sends
+    both — the client renders HTML and falls back to text). Never raises: a mail failure
+    must not break the caller (e.g. ending a chat).
     """
     if not to:
         return False
@@ -42,12 +44,15 @@ def send_email(to: str, subject: str, text: str) -> bool:
         import resend
 
         resend.api_key = os.environ["RESEND_API_KEY"]
-        resend.Emails.send({
+        params = {
             "from": os.environ.get("RESEND_FROM", _DEFAULT_FROM),
             "to": [to],
             "subject": subject,
             "text": text,
-        })
+        }
+        if html:
+            params["html"] = html
+        resend.Emails.send(params)
         return True
     except Exception:
         logger.exception("[mailer] failed to send email to %s", to)

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chat transcript with {{ site_name }}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f3f4f6;">
+    <!-- Inline styles + table layout: email clients strip <style> and float/flex. -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+            <tr>
+              <td style="background:{{ color }};padding:20px 24px;">
+                <div style="color:#ffffff;font-size:18px;font-weight:600;">{{ site_name }}</div>
+                <div style="color:#ffffff;opacity:0.85;font-size:13px;margin-top:2px;">Chat transcript</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 24px;">
+                {% for m in messages %}
+                  {% if m.role == operator_role %}
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td align="left">
+                          <div style="font-size:11px;color:#9ca3af;margin:0 0 3px 2px;">{{ m.who }} &middot; {{ m.time }}</div>
+                          <div style="display:inline-block;max-width:82%;background:#f3f4f6;color:#111827;padding:9px 13px;border-radius:12px;font-size:14px;line-height:1.4;text-align:left;word-break:break-word;">{{ m.body|linebreaksbr }}</div>
+                        </td>
+                      </tr>
+                    </table>
+                  {% else %}
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td align="right">
+                          <div style="font-size:11px;color:#9ca3af;margin:0 2px 3px 0;">{{ m.who }} &middot; {{ m.time }}</div>
+                          <div style="display:inline-block;max-width:82%;background:{{ color }};color:#ffffff;padding:9px 13px;border-radius:12px;font-size:14px;line-height:1.4;text-align:left;word-break:break-word;">{{ m.body|linebreaksbr }}</div>
+                        </td>
+                      </tr>
+                    </table>
+                  {% endif %}
+                  <div style="height:10px;line-height:10px;font-size:10px;">&nbsp;</div>
+                {% empty %}
+                  <div style="color:#6b7280;font-size:14px;">No messages were exchanged.</div>
+                {% endfor %}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 24px 24px;border-top:1px solid #e5e7eb;">
+                <div style="color:#6b7280;font-size:13px;">Thanks for chatting with us!</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

@@ -9,6 +9,7 @@ Synchronous — the async consumer calls it via `sync_to_async`.
 
 import logging
 
+from django.template.loader import render_to_string
 from django.utils import timezone
 
 from mailer import service as mailer
@@ -35,15 +36,41 @@ def send_transcript(conversation_id) -> bool:
         return False
 
     subject = f"Your chat transcript with {conv.site.name}"
-    return mailer.send_email(conv.visitor.email, subject, _render(conv))
+    return mailer.send_email(
+        conv.visitor.email, subject, _render_text(conv), html=_render_html(conv)
+    )
 
 
-def _render(conv) -> str:
+def _rows(conv) -> list:
+    """Message rows shared by the text and HTML renderers."""
     site_name = conv.site.name
     who = {Message.VISITOR: (conv.visitor.name or "You"), Message.OPERATOR: site_name}
-    lines = [f"Your conversation with {site_name}", ""]
-    for m in conv.messages.all():
-        stamp = timezone.localtime(m.created_at).strftime("%Y-%m-%d %H:%M")
-        lines.append(f"[{stamp}] {who.get(m.sender_role, m.sender_role)}: {m.body}")
+    return [
+        {
+            "role": m.sender_role,
+            "who": who.get(m.sender_role, m.sender_role),
+            "time": timezone.localtime(m.created_at).strftime("%b %d, %H:%M"),
+            "body": m.body,
+        }
+        for m in conv.messages.all()
+    ]
+
+
+def _render_text(conv) -> str:
+    lines = [f"Your conversation with {conv.site.name}", ""]
+    for r in _rows(conv):
+        lines.append(f"[{r['time']}] {r['who']}: {r['body']}")
     lines += ["", "Thanks for chatting with us!"]
     return "\n".join(lines)
+
+
+def _render_html(conv) -> str:
+    return render_to_string(
+        "email/transcript.html",
+        {
+            "site_name": conv.site.name,
+            "color": conv.site.color,
+            "operator_role": Message.OPERATOR,
+            "messages": _rows(conv),
+        },
+    )

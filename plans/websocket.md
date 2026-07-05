@@ -1046,3 +1046,81 @@ the owner. Parked in "Later / out of scope".
   Demo Site; chat, operator ends, rate 4★ + a comment; see the operator toast/notification
   and the rating in Django admin.
 - **Deploy:** commit + push (auto-deploys, migration `0008`); repeat live.
+
+---
+
+# Phase 11 — HTML / branded email transcripts (detailed build plan)
+
+## Context
+Phase 9 emails the visitor a **plain-text** transcript when an operator ends a chat.
+This phase upgrades that to a **branded HTML email** — the site's name and brand colour,
+readable chat bubbles (visitor vs operator), timestamps, and a footer — while keeping the
+plain-text version as the multipart fallback (correct email practice; text renders where
+HTML is stripped). It reuses the entire Phase 9 pipeline (the `mailer`/Resend app +
+`chat/transcripts.py` + `Site.transcript_enabled`); **no model change, no migration, no
+new toggle** — HTML is strictly better, so every transcript just becomes multipart.
+
+**Branding primitives available today:** `site.name` and `site.color` (a hex like
+`#2563eb`) — same set the widget uses. No logo/company field exists (a logo would need a
+new model field + image/URL handling + email image-blocking considerations) — deliberately
+out of scope here; see Excluded.
+
+## Mailer — `mailer/service.py` (CHANGED, small)
+- Extend the signature to `send_email(to, subject, text, html=None)`. Build the Resend
+  params dict with `text` as today, and **add `"html": html` only when `html` is truthy**
+  (Resend's `SendParams` allows `text` and `html` together — confirmed in the SDK; the
+  client renders HTML and falls back to text). Everything else (gating, never-raises
+  try/except, the no-key log path) is unchanged. Stays chat-agnostic.
+
+## Transcript composition — `chat/transcripts.py` (CHANGED)
+- Rename the existing `_render` → `_render_text` (unchanged body — the plain-text fallback).
+- Add `_render_html(conv) -> str` that builds the branded HTML via Django's
+  `render_to_string("email/transcript.html", context)` (import
+  `from django.template.loader import render_to_string`). Keep the view logic-light by
+  pre-building the context in Python:
+  - `site_name = conv.site.name`, `color = conv.site.color`,
+  - `messages = [{"who", "role", "time", "body"} …]` where `who` is the visitor's name
+    (or "You") for visitor rows and the site name for operator rows, `role` drives bubble
+    styling, `time` is `timezone.localtime(m.created_at).strftime("%b %d, %H:%M")`.
+- `send_transcript` now calls
+  `mailer.send_email(conv.visitor.email, subject, _render_text(conv), html=_render_html(conv))`.
+  All gates (`mailer.enabled()`, `transcript_enabled`, `visitor.email`) are unchanged.
+
+## New template — `templates/email/transcript.html` (NEW)
+- A self-contained, **inline-styled, table-based** HTML email (no external CSS/JS/images —
+  matches deliverability best practice and the project's self-contained ethos). Structure:
+  - A header band in `site.color` with the site name + "Chat transcript".
+  - One row per message: operator bubbles tinted with `site.color` (like the widget),
+    visitor bubbles in light grey; small sender label + timestamp above each.
+  - A muted footer ("Thanks for chatting with us!").
+  - Autoescape (default) escapes message bodies; `{{ m.body|linebreaksbr }}` preserves
+    newlines. `templates/email/` resolves via the existing `DIRS = [BASE_DIR/"templates"]`.
+
+## Definition of done
+- Ending a chat on a transcript-enabled site emails the visitor a **branded HTML**
+  transcript (site name + colour, styled bubbles, timestamps) with the plain-text version
+  as the multipart fallback.
+- All Phase 9 gates still hold (no key / transcripts off / no visitor email → nothing sent).
+- All ten prior e2e suites still pass; the transcript test now also asserts the HTML part.
+- Works live on `live-chat.bilalhasson.com` (no new env vars beyond Phase 9's Resend keys).
+
+## Deliberately excluded
+Logo / company-name / custom footer fields (new model fields — a future "branding"
+phase); per-site HTML on/off toggle (HTML is always better as multipart); MJML/framework
+templating; dark-mode email variants; inlining via a CSS-inliner library (hand-written
+inline styles are enough for one template); attachments (e.g. PDF transcript).
+
+## Verification
+- **Automated (extend `phase9_transcript.py`, provider still mocked — no real Resend):**
+  - Update the capture stub to `_fake_send_email(to, subject, text, html=None)` and record
+    `html`. Happy path now also asserts: `html` is non-empty, contains the site name, the
+    brand colour (`conv.site.color`), and the message bodies; `text` is still the plain
+    fallback. Gates unchanged (still assert `send_email` not called when off/no-email/
+    disabled).
+  - Optional unit check: `render_to_string("email/transcript.html", ctx)` renders without
+    error and HTML-escapes a body containing `<b>`/`&`.
+  - *Regressions:* re-run all ten prior suites (flush Redis first).
+- **Manual:** with `RESEND_API_KEY` set locally, end a transcript-enabled chat and confirm
+  the received email is branded HTML (and the text part exists — e.g. "show original").
+- **Deploy:** commit + push (auto-deploys; no migration this phase); end a live chat and
+  confirm the branded email arrives.
