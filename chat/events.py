@@ -24,6 +24,7 @@ CONVERSATION_ENDED = "conversation.ended"
 CONVERSATION_REMOVED = "conversation.removed"
 TYPING = "typing.event"
 PRESENCE = "presence.event"
+FEEDBACK = "feedback.event"
 
 # --- outbound client message types (JSON "type" to the browser) ---
 C_WELCOME = "welcome"
@@ -42,6 +43,7 @@ C_IDENTIFIED = "identified"
 C_IDENTIFY_ERROR = "identify_error"
 C_ENDED = "ended"
 C_CONVERSATION_REMOVED = "conversation_removed"
+C_FEEDBACK = "feedback"
 
 # --- inbound client actions ---
 A_OPEN = "open"
@@ -50,6 +52,7 @@ A_TYPING = "typing"
 A_SUGGEST = "suggest"
 A_IDENTIFY = "identify"
 A_END = "end"
+A_FEEDBACK = "feedback"
 
 # presence scopes
 SCOPE_OPERATOR = "operator"
@@ -79,6 +82,11 @@ def typing(conversation_id, role: str, is_typing: bool) -> dict:
 
 def presence(scope: str, online: bool, conversation_id=None) -> dict:
     return {"type": PRESENCE, "scope": scope, "online": online, "conversation_id": conversation_id}
+
+
+def feedback(data: dict) -> dict:
+    # data = {conversation_id, name, rating, comment} from services.save_feedback
+    return {"type": FEEDBACK, **data}
 
 
 # --- outbound client payload builders (json.dumps'd and sent to the browser) ---
@@ -144,3 +152,13 @@ def client_ended() -> dict:
 
 def client_conversation_removed(conversation_id) -> dict:
     return {"type": C_CONVERSATION_REMOVED, "conversation_id": conversation_id}
+
+
+def client_feedback(conversation_id, name: str, rating: int, comment: str) -> dict:
+    return {
+        "type": C_FEEDBACK,
+        "conversation_id": conversation_id,
+        "name": name,
+        "rating": rating,
+        "comment": comment,
+    }

@@ -48,6 +48,39 @@ def end_conversation(conversation_id) -> None:
 
 
 @database_sync_to_async
+def save_feedback(conversation_id, rating, comment: str):
+    """Persist a visitor's post-chat rating. Returns a toast dict, or None if rejected.
+
+    Rejected when the rating isn't an int 1–5 or the site has feedback turned off
+    (server-side defense, not just client-gated).
+    """
+    try:
+        rating = int(rating)
+    except (TypeError, ValueError):
+        return None
+    if not 1 <= rating <= 5:
+        return None
+    conv = (
+        Conversation.objects.select_related("site", "visitor")
+        .filter(id=conversation_id)
+        .first()
+    )
+    if conv is None or not conv.site.feedback_enabled:
+        return None
+    comment = (comment or "").strip()[:2000]
+    conv.rating = rating
+    conv.feedback = comment
+    conv.feedback_at = timezone.now()
+    conv.save(update_fields=["rating", "feedback", "feedback_at"])
+    return {
+        "conversation_id": conv.id,
+        "name": conv.visitor.name or f"Visitor {conv.visitor.token[:8]}",
+        "rating": rating,
+        "comment": comment,
+    }
+
+
+@database_sync_to_async
 def set_conversation_page(conversation_id, url: str) -> None:
     Conversation.objects.filter(id=conversation_id).update(page_url=url[:500])
 

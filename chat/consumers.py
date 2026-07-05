@@ -105,6 +105,9 @@ class VisitorConsumer(AsyncWebsocketConsumer):
         if action == events.A_IDENTIFY:
             await self._identify(data.get("name", ""), data.get("email", ""))
             return
+        if action == events.A_FEEDBACK:
+            await self._feedback(data.get("rating"), data.get("comment", ""))
+            return
 
         body = (data.get("body") or data.get("message") or "").strip()
         if not body:
@@ -135,6 +138,13 @@ class VisitorConsumer(AsyncWebsocketConsumer):
             site_operators_group(self.site.id),
             events.conversation_update(await services.conversation_summary(self.conversation.id)),
         )
+
+    async def _feedback(self, rating, comment):
+        # Persist the rating and notify operators; save_feedback validates + gates.
+        data = await services.save_feedback(self.conversation.id, rating, comment)
+        if data is None:
+            return
+        await self.channel_layer.group_send(site_operators_group(self.site.id), events.feedback(data))
 
     # --- channel-layer event handlers ---
     async def chat_message(self, event):
@@ -340,4 +350,10 @@ class OperatorConsumer(AsyncWebsocketConsumer):
     async def conversation_removed(self, event):
         await self.send(text_data=json.dumps(
             events.client_conversation_removed(event["conversation_id"])
+        ))
+
+    async def feedback_event(self, event):
+        # A visitor rated an (already-ended) chat → surface it to the operator.
+        await self.send(text_data=json.dumps(
+            events.client_feedback(event["conversation_id"], event["name"], event["rating"], event["comment"])
         ))

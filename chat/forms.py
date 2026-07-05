@@ -21,7 +21,8 @@ class SiteForm(forms.ModelForm):
         model = Site
         fields = (
             "name", "allowed_domain", "color", "position", "greeting",
-            "pre_chat_enabled", "transcript_enabled", "ai_enabled", "ai_tone", "ai_context",
+            "pre_chat_enabled", "transcript_enabled", "feedback_enabled",
+            "ai_enabled", "ai_tone", "ai_context",
         )
         widgets = {
             "color": forms.TextInput(attrs={"type": "color"}),
@@ -32,6 +33,7 @@ class SiteForm(forms.ModelForm):
         labels = {
             "pre_chat_enabled": "Pre-chat form",
             "transcript_enabled": "Email transcripts",
+            "feedback_enabled": "Post-chat rating",
             "ai_enabled": "AI suggested replies",
             "ai_tone": "AI tone of voice",
             "ai_context": "AI business context",
@@ -40,6 +42,7 @@ class SiteForm(forms.ModelForm):
             "allowed_domain": "Lock the widget to this domain (and subdomains). Leave blank to allow any origin.",
             "pre_chat_enabled": "Ask visitors for their name and email before they can start chatting.",
             "transcript_enabled": "Email the visitor a transcript when a chat ends — needs their email and Resend configured.",
+            "feedback_enabled": "Ask visitors to rate the chat (1–5 stars) after an operator ends it.",
             "ai_context": "Grounds the AI's drafts in your business. The single biggest lever on reply quality.",
         }
 

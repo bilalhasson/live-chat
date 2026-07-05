@@ -41,6 +41,9 @@ class Site(models.Model):
     # Email the visitor a transcript when a chat ends (needs their email + Resend).
     transcript_enabled = models.BooleanField(default=False)
 
+    # Ask the visitor to rate the chat once an operator ends it.
+    feedback_enabled = models.BooleanField(default=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -54,6 +57,7 @@ class Site(models.Model):
             "position": self.position,
             "greeting": self.greeting,
             "pre_chat": self.pre_chat_enabled,
+            "feedback": self.feedback_enabled,
         }
 
 
@@ -77,6 +81,11 @@ class Conversation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     last_message_at = models.DateTimeField(null=True, blank=True)
     ended_at = models.DateTimeField(null=True, blank=True)  # set when an operator ends the chat
+
+    # Post-chat feedback (captured on the thank-you screen after an operator ends it).
+    rating = models.PositiveSmallIntegerField(null=True, blank=True)  # 1–5
+    feedback = models.TextField(blank=True, default="")
+    feedback_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"Conversation #{self.pk} ({self.visitor.token[:8]}…)"

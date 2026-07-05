@@ -872,7 +872,7 @@ Per the ask, the email provider lives in its own app so it's isolated and reusab
     `resend.Emails.send({"from": RESEND_FROM, "to": [to], "subject": …, "text": …})`;
     if not `enabled()` it logs the intended email and returns `False`; wrapped in
     `try/except` so it logs and returns `False` on any error (never raises).
-- Env: `RESEND_API_KEY` and `RESEND_FROM` (e.g. `"Live Chat <live-chat@bilalhasson.com>"`).
+- Env: `RESEND_API_KEY` and `RESEND_FROM` (e.g. `"Live Chat <chat@bilalhasson.com>"`).
   No Django `EMAIL_*`/SMTP settings — we call Resend directly. Feature-gated on the key,
   exactly like the AI feature.
 
@@ -929,3 +929,120 @@ unsubscribe management; sending on visitor-leave (end-chat is the reliable trigg
   logs the intended email (disabled); set a real key to actually deliver.
 - **Deploy:** set `RESEND_API_KEY` + `RESEND_FROM` on Railway, commit + push (migration
   `0007`), then end a live chat and confirm the visitor receives the email.
+
+---
+
+# Phase 10 — Post-chat feedback & rating (detailed build plan)
+
+## Context
+Phase 8 left the visitor a thank-you screen and noted it "can be expanded later to show
+feedback requests." This phase does that: after an operator ends a chat, the visitor can
+rate the conversation and leave an optional comment. It closes the loop on the end-chat
+flow and gives the product a real CSAT signal — a natural, self-contained next concept.
+
+**Defaults chosen (user was away for the clarifying questions — confirm at approval):**
+- **5-star** rating + an **optional comment** (stored as an int `1–5`, so a thumbs
+  👍/👎 variant is a trivial later swap — map to `5`/`1`).
+- Operator sees it as a **real-time toast in the inbox** (reusing the existing
+  notification/sound + transient-banner code) **and** in **Django admin** (durable view,
+  since ended chats leave the inbox).
+- Submitted **over the existing visitor WebSocket** (on-theme; avoids adding a
+  cross-origin POST endpoint with its own CORS-preflight + CSRF-exempt surface, which
+  doesn't exist today). This is the recommended transport; the HTTP alternative was
+  considered and rejected as more new surface for a one-shot submit.
+
+## Model — `chat/models.py` (CHANGED) + migration `0008`
+- `Conversation`: `rating` (`PositiveSmallIntegerField`, null=True, blank=True — `1–5`),
+  `feedback` (`TextField`, blank), `feedback_at` (`DateTimeField`, null=True, blank=True).
+- `Site`: `feedback_enabled` (bool, **default `True`** — this is polish, on by default so
+  the demo shows it with no config; owner can turn it off). Add `"feedback":
+  self.feedback_enabled` to `Site.config()` so the widget learns it via the existing
+  `config.json` (no new endpoint — same path as `pre_chat`).
+
+## Protocol — `chat/events.py` (CHANGED)
+- Inbound visitor action `A_FEEDBACK = "feedback"` (`{rating, comment}`).
+- Channel-layer event `FEEDBACK = "feedback.event"` → handler `feedback_event` (to the
+  site operators group).
+- Outbound client `C_FEEDBACK = "feedback"` + builder `client_feedback(conversation_id,
+  name, rating, comment)` (operator toast payload). No visitor ack — the widget confirms
+  optimistically on submit (stars are client-constrained, always valid).
+
+## Data layer — `chat/services.py` (CHANGED)
+- `save_feedback(conversation_id, rating, comment) -> dict | None` (async): coerce/validate
+  `rating` is an int in `1..5` (else return `None`); load the conversation
+  (`select_related("site", "visitor")`); ignore (return `None`) if the site has
+  `feedback_enabled=False` (server-side defense, not just client-gated); set
+  `rating`/`feedback`/`feedback_at = timezone.now()`; return
+  `{conversation_id, name, rating, comment}` (visitor name for the toast).
+
+## VisitorConsumer — `chat/consumers.py` (CHANGED, stays thin)
+- `receive`: `A_FEEDBACK` → `_feedback(rating, comment)` — early, alongside the existing
+  `A_TYPING`/`A_IDENTIFY` dispatch.
+- `_feedback`: `data = await services.save_feedback(self.conversation.id, rating, comment)`;
+  if `data`, `group_send` `events.feedback(data)` to `site_operators_group(self.site.id)`.
+  (Feedback is allowed on the ended conversation the socket already holds — no new lookup.)
+
+## OperatorConsumer — `chat/consumers.py` (CHANGED, small)
+- New handler `feedback_event(event)` → send `client_feedback(...)` to the browser. (The
+  conversation is already gone from the operator's `convs` after `conversation_removed`,
+  so the toast is self-contained — it carries name/rating/comment.)
+
+## Widget — `static/widget/loader.js` (CHANGED)
+- Build a **feedback UI inside the existing `.ended` view**: a row of 5 star buttons + an
+  optional comment input + Send, shown only when the `feedback` config flag is true; then
+  a post-submit "Thanks for your feedback! 🙏" state. If feedback is off, the ended view
+  is exactly today's plain thank-you.
+- **Keep the socket open on `ended`** (remove the `socket.close()` in the `"ended"` case)
+  so the rating can be sent; `stopped=true` already prevents auto-reconnect. On **Send**:
+  `socket.send({action:"feedback", rating, comment})`, show the thanks state, then
+  `socket.close()`. In the **`endedNew`** handler, `try { socket.close() } catch {}`
+  before `connect()` (the socket may still be open). Star markup/handlers mirror the
+  existing pre-chat/ended view code + inline `<style>`.
+
+## Operator inbox — `static/operator/operator.js` + `templates/operator.html` (CHANGED)
+- New `case "feedback":` in `onMessage` → reuse `notify(title, body)` + `beep()`, and show
+  a transient banner (copy the `flashSuggestError` pattern) like
+  `⭐️⭐️⭐️⭐️ from {name} — "{comment}"`. Small CSS for the banner if not reusing the
+  suggest line. No change to `convs` (the conversation has already been removed).
+
+## Dashboard — `chat/forms.py` (CHANGED)
+- `SiteForm` gains `feedback_enabled` (checkbox, label "Post-chat rating", help text:
+  "Ask visitors to rate the chat after it ends."). Renders via the existing
+  `{{ form.as_p }}` on the site settings page — no new route/view.
+
+## Admin — `chat/admin.py` (CHANGED)
+- `ConversationAdmin.list_display` += `"rating"`; `list_filter` += `"rating"`. Comment is
+  visible on the conversation detail page (and messages are already inline there).
+
+## Definition of done
+- With a site's **Post-chat rating** on, ending a chat shows the connected visitor a
+  5-star prompt + optional comment on the thank-you screen; submitting sends it and shows
+  a thanks state; **Start new chat** still works.
+- A connected operator gets a real-time toast (+ notification/sound) with the rating and
+  comment; the rating/comment persist on the `Conversation` and are visible in admin.
+- Invalid ratings are ignored; a site with feedback off neither shows the prompt nor
+  accepts a submitted rating (server-side defense).
+- All nine prior e2e suites still pass; a new feedback test passes.
+- Works live on `live-chat.bilalhasson.com`.
+
+## Deliberately excluded
+A dashboard feedback/analytics page or CSAT aggregate (admin covers viewing for now — a
+clean future add); editing a rating after submit; feedback on chats the visitor (not the
+operator) ends; requiring a comment; per-question surveys / NPS; emailing the rating to
+the owner. Parked in "Later / out of scope".
+
+## Verification
+- **Automated (extend the mocked WS harness, like `phase8_end`/`phase9_transcript`):**
+  - Visitor + operator connected; operator ends → visitor gets `ended`. Visitor sends
+    `{action:"feedback", rating:4, comment:"great help"}` → operator receives a `feedback`
+    message carrying the visitor name, `rating==4`, comment; `Conversation.rating==4` and
+    `feedback=="great help"` persisted.
+  - *Invalid:* `rating:0` / `6` / `"x"` → no operator `feedback`, `rating` stays null.
+  - *Disabled:* a site with `feedback_enabled=False` → `save_feedback` returns None,
+    nothing persisted or broadcast.
+  - *Regressions:* re-run all nine prior suites (flush Redis first — presence sets from
+    prior runs otherwise leak into `phase3_e2e`).
+- **Manual (browser), local via `./dev.sh` then live:** enable Post-chat rating on the
+  Demo Site; chat, operator ends, rate 4★ + a comment; see the operator toast/notification
+  and the rating in Django admin.
+- **Deploy:** commit + push (auto-deploys, migration `0008`); repeat live.

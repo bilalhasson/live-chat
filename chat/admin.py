@@ -21,7 +21,8 @@ class MessageInline(admin.TabularInline):
 
 @admin.register(Conversation)
 class ConversationAdmin(admin.ModelAdmin):
-    list_display = ("id", "site", "visitor", "last_message_at", "created_at")
+    list_display = ("id", "site", "visitor", "rating", "last_message_at", "created_at")
+    list_filter = ("rating",)
     inlines = [MessageInline]
 
 

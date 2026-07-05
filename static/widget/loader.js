@@ -53,7 +53,7 @@
     var color = overrides.color || cfg.color || "#2563eb";
     var pos = (overrides.position || cfg.position) === "bottom-left" ? "left" : "right";
     var greeting = overrides.greeting || cfg.greeting || "Hi! How can we help?";
-    start(color, pos, greeting, !!cfg.pre_chat);
+    start(color, pos, greeting, !!cfg.pre_chat, cfg.feedback !== false);
   });
 
   function fetchConfig(cb) {
@@ -64,7 +64,7 @@
       .catch(function () { cb({}); });
   }
 
-  function start(color, position, greeting, preChat) {
+  function start(color, position, greeting, preChat, feedback) {
     // --- Shadow DOM host (isolated from the page's CSS) ---
     var host = document.createElement("div");
     host.style.position = "fixed";
@@ -105,6 +105,16 @@
       ".ended.show{display:flex}",
       ".ended-msg{font-size:14px;color:#374151}",
       ".ended button{border:none;border-radius:6px;padding:10px;color:#fff;font-size:14px;cursor:pointer;background:#2563eb}",
+      ".rate{display:none;flex-direction:column;gap:8px}",
+      ".rate.on{display:flex}",
+      ".rate-q{font-size:13px;color:#374151}",
+      ".stars{display:flex;gap:6px;justify-content:center}",
+      ".star{font-size:26px;line-height:1;cursor:pointer;color:#d1d5db;user-select:none}",
+      ".star.on{color:#f59e0b}",
+      ".rate-comment{border:1px solid #d1d5db;border-radius:6px;padding:9px 10px;font-size:14px;outline:none;font-family:inherit}",
+      ".rate-send:disabled{opacity:.5;cursor:default}",
+      ".rate-thanks{display:none;font-size:14px;color:#374151}",
+      ".rate-thanks.show{display:block}",
       "</style>",
       '<div class="wrap' + (position === "left" ? " left" : "") + '">',
       '  <div class="panel">',
@@ -119,6 +129,13 @@
       '    <div class="row"><input class="inp" type="text" placeholder="Type a message…" /></div>',
       '    <div class="ended">',
       '      <div class="ended-msg">Thanks for chatting with us! 👋</div>',
+      '      <div class="rate">',
+      '        <div class="rate-q">How was your chat?</div>',
+      '        <div class="stars"></div>',
+      '        <input class="rate-comment" type="text" placeholder="Add a comment (optional)" />',
+      '        <button class="rate-send" type="button" disabled>Send feedback</button>',
+      "      </div>",
+      '      <div class="rate-thanks">Thanks for your feedback! 🙏</div>',
       '      <button class="ended-new" type="button">Start new chat</button>',
       "    </div>",
       "  </div>",
@@ -140,12 +157,49 @@
     var row = shadow.querySelector(".row");
     var endedView = shadow.querySelector(".ended");
     var endedNew = shadow.querySelector(".ended-new");
+    var rateWrap = shadow.querySelector(".rate");
+    var starsEl = shadow.querySelector(".stars");
+    var rateComment = shadow.querySelector(".rate-comment");
+    var rateSend = shadow.querySelector(".rate-send");
+    var rateThanks = shadow.querySelector(".rate-thanks");
 
     hdr.style.background = color;
     bubble.style.background = color;
     pcStart.style.background = color;
     endedNew.style.background = color;
+    rateSend.style.background = color;
     var stopped = false;  // true once an operator has ended the chat
+
+    // --- post-chat rating (shown on the ended screen when the site enables it) ---
+    var rating = 0;
+    var starEls = [];
+    for (var i = 1; i <= 5; i++) {
+      var star = document.createElement("span");
+      star.className = "star";
+      star.textContent = "★";
+      star.dataset.value = i;
+      star.addEventListener("click", function (e) { setRating(+e.target.dataset.value); });
+      starsEl.appendChild(star);
+      starEls.push(star);
+    }
+    function setRating(n) {
+      rating = n;
+      starEls.forEach(function (s, idx) { s.classList.toggle("on", idx < n); });
+      rateSend.disabled = n < 1;
+    }
+    function resetRate() {
+      setRating(0);
+      rateComment.value = "";
+      rateThanks.classList.remove("show");
+      rateWrap.classList.toggle("on", !!feedback);
+    }
+    rateSend.addEventListener("click", function () {
+      if (rating < 1 || !socket || socket.readyState !== WebSocket.OPEN) return;
+      socket.send(JSON.stringify({ action: "feedback", rating: rating, comment: rateComment.value.trim() }));
+      rateWrap.classList.remove("on");
+      rateThanks.classList.add("show");
+      try { socket.close(); } catch (e) {}  // stopped is already true → no reconnect
+    });
 
     // Pre-chat gate: until we hear otherwise, assume unidentified when pre-chat is on.
     var identified = !preChat;
@@ -173,6 +227,9 @@
 
     endedNew.addEventListener("click", function () {
       endedView.classList.remove("show");
+      rateThanks.classList.remove("show");
+      // The feedback socket may still be open — drop it without triggering a reconnect.
+      if (socket) { try { socket.onclose = null; socket.close(); } catch (e) {} }
       stopped = false;
       updateGate();     // restore input/pre-chat view
       connect();        // fresh socket → server returns a brand-new conversation
@@ -226,8 +283,10 @@
             stopped = true;
             prechat.classList.remove("show");
             row.classList.add("hidden");
+            resetRate();                 // arm the star widget (shows .rate when enabled)
             endedView.classList.add("show");
-            try { socket.close(); } catch (e) {}
+            // Keep the socket open to receive the rating; if feedback is off, close now.
+            if (!feedback) { try { socket.close(); } catch (e) {} }
             break;
           case "history":
             renderIntro();

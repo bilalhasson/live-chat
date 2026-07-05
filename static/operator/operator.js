@@ -119,7 +119,31 @@
         }
         renderList();
         break;
+      case "feedback":
+        var filled = "★★★★★".slice(0, data.rating);
+        var empty = "☆☆☆☆☆".slice(0, 5 - data.rating);
+        toast(filled + empty + "  " + data.name + (data.comment ? " — “" + data.comment + "”" : ""));
+        notify("New rating: " + data.rating + "/5", (data.comment || data.name || ""));
+        beep();
+        break;
     }
+  }
+
+  // --- transient toast (post-chat feedback lands after the conv leaves the inbox) ---
+  var toastTimer;
+  function toast(text) {
+    var t = document.getElementById("op-toast");
+    if (!t) {
+      t = document.createElement("div");
+      t.id = "op-toast";
+      t.style.cssText = "position:fixed;bottom:16px;left:50%;transform:translateX(-50%);" +
+        "background:#111827;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;" +
+        "box-shadow:0 6px 20px rgba(0,0,0,.25);z-index:9999;max-width:80vw;";
+      document.body.appendChild(t);
+    }
+    t.textContent = text;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.remove(); }, 6000);
   }
 
   function renderList() {
