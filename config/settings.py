@@ -29,14 +29,18 @@ DEBUG = env_bool("DEBUG", default=True)
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS") or (["*"] if DEBUG else ["localhost", "127.0.0.1"])
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
 
+# Railway's internal healthcheck hits the app with this Host header. Whitelist it
+# unconditionally: RAILWAY_PUBLIC_DOMAIN is injected on a normal build-and-deploy
+# but NOT on an API-triggered redeploy (e.g. the hibernate gateway waking the
+# stack), so gating this on that variable makes the healthcheck fail on wake.
+ALLOWED_HOSTS.append("healthcheck.railway.app")
+
 # Railway injects the service's public domain here — trust it automatically so we
 # don't have to hardcode the generated *.up.railway.app hostname.
 RAILWAY_PUBLIC_DOMAIN = os.environ.get("RAILWAY_PUBLIC_DOMAIN")
 if RAILWAY_PUBLIC_DOMAIN:
     ALLOWED_HOSTS.append(RAILWAY_PUBLIC_DOMAIN)
     CSRF_TRUSTED_ORIGINS.append(f"https://{RAILWAY_PUBLIC_DOMAIN}")
-    # Railway's internal healthcheck hits the app with this Host header.
-    ALLOWED_HOSTS.append("healthcheck.railway.app")
 
 # Railway (and most PaaS) terminate TLS at a proxy and forward over http.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
