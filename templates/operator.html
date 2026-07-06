@@ -10,7 +10,9 @@
       body { margin: 0; font-family: system-ui, sans-serif; color: #111827; height: 100vh; display: flex; flex-direction: column; }
       header { display: flex; align-items: center; justify-content: space-between;
                padding: 10px 16px; background: #111827; color: #fff; font-size: 14px; }
-      header a { color: #93c5fd; font-size: 13px; }
+      header a { color: #93c5fd; font-size: 13px; text-decoration: none; }
+      header a:hover { text-decoration: underline; }
+      header .nav { display: flex; align-items: center; gap: 16px; }
       header form { margin: 0; }
       #logout { background: none; border: none; color: #93c5fd; font-size: 13px; cursor: pointer; padding: 0; }
       #status { font-size: 12px; opacity: .8; }
@@ -60,11 +62,14 @@
   <body>
     <header>
       <span>Operator inbox <span id="status">connecting…</span></span>
-      <!-- Django 5.x LogoutView is POST-only; a GET link would 405 and NOT log out. -->
-      <form method="post" action="/logout/">
-        {% csrf_token %}
-        <button id="logout" type="submit">Log out</button>
-      </form>
+      <span class="nav">
+        <a href="{% url 'sites' %}">Sites</a>
+        <!-- Django 5.x LogoutView is POST-only; a GET link would 405 and NOT log out. -->
+        <form method="post" action="/logout/">
+          {% csrf_token %}
+          <button id="logout" type="submit">Log out</button>
+        </form>
+      </span>
     </header>
     <main>
       <div id="list"></div>
